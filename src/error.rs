@@ -9,6 +9,8 @@ pub enum RngesusError {
     InvalidInstruction,
     #[error("More Callbacks than space allocated")]
     TooManyCallbacks,
+    #[error("Incorrect Secret or Hash")]
+    IncorrectSecretOrHash,
 }
 
 impl From<RngesusError> for ProgramError {

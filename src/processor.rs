@@ -7,8 +7,7 @@ use solana_program::{
     program_pack::{Pack, IsInitialized},
 };
 
-use crate::{instruction::RngesusInstruction, state::Rngesus};
-
+use crate::{instruction::RngesusInstruction, state::Rngesus, error::RngesusError};
 
 pub struct Processor;
 
@@ -20,8 +19,50 @@ impl Processor {
             RngesusInstruction::InitRngesus { initial_key } => {
                 msg!("Instruction: InitRngesus");
                 Self::process_init_rngesus(accounts, &initial_key, program_id)
+            },
+            RngesusInstruction::IncrementPass { new_key, secret } => {
+                msg!("Instruction: IncrementPass");
+                Self::process_increment_pass(accounts, &new_key, &secret, program_id)
             }
         }
+    }
+
+    fn process_increment_pass(
+        accounts: &[AccountInfo],
+        new_key: &Pubkey,
+        secret: &[u8; 32],
+        program_id: &Pubkey, 
+    ) -> ProgramResult {
+        let account_info_iter = &mut accounts.iter();
+
+        // We don't care who the initializer is, if they have the secret it's alll gravy
+        let _ = next_account_info(account_info_iter)?;
+
+        let rngesus_account = next_account_info(account_info_iter)?;
+
+        // We need to ensure that the passed in rng account is the right one
+        if rngesus_account.owner != program_id{
+            return Err(ProgramError::IncorrectProgramId);
+        }
+
+        let mut rng_info = Rngesus::unpack_unchecked(&rngesus_account.try_borrow_data()?)?;
+        if !rng_info.is_initialized() {
+            return Err(ProgramError::UninitializedAccount);
+        }
+        
+        if !piapprec::verify(
+            &rng_info.prev_hash.to_bytes(), 
+            &new_key.to_bytes(), 
+            secret
+        ) { 
+            return Err(RngesusError::IncorrectSecretOrHash.into())
+        }
+        
+        rng_info.prev_hash = *new_key;
+        Rngesus::pack(rng_info, &mut rngesus_account.try_borrow_mut_data()?)?;
+
+        Ok(())
+
     }
 
     fn process_init_rngesus(
@@ -31,12 +72,12 @@ impl Processor {
     ) -> ProgramResult {
         let account_info_iter = &mut accounts.iter();
         let initializer = next_account_info(account_info_iter)?;
+        let rngesus_account = next_account_info(account_info_iter)?;
 
-        if !initializer.is_signer {
+        // We need to ensure that the initialization is done by the contract owner.
+        if !initializer.is_signer || rngesus_account.owner != initializer.key{
             return Err(ProgramError::MissingRequiredSignature);
         }
-
-        let rngesus_account = next_account_info(account_info_iter)?;
 
         if rngesus_account.owner != program_id {
             return Err(ProgramError::IncorrectProgramId);
