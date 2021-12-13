@@ -1,3 +1,5 @@
+use std::str::FromStr;
+
 use solana_program::{
     account_info::{next_account_info,AccountInfo},
     entrypoint::ProgramResult,
@@ -74,23 +76,70 @@ impl Processor {
         let initializer = next_account_info(account_info_iter)?;
         let rngesus_account = next_account_info(account_info_iter)?;
 
+        // derived_bpf_address contains the pubkey for the account which holds
+        // the data for the currently running program.
+        let (derived_bpf_address, _) =     Pubkey::find_program_address(
+            &[
+                &program_id.to_bytes()
+            ],
+            &Pubkey::from_str("BPFLoaderUpgradeab1e11111111111111111111111").ok().unwrap()
+        );
+
+
+        // Here we want to check the upgrade authority to ensure the initializaiton is done by
+        // the contract creator.  Awkward because in order to check, we need to pass the account in,
+        // which we do.  But since we have it, we can just derive what it is supposed to be, and check.
+        
+        let actual_bpf_account = next_account_info(account_info_iter)?;
+        
+
+        msg!("actual: {}, derived: {}", actual_bpf_account.key, derived_bpf_address);
         // We need to ensure that the initialization is done by the contract owner.
-        if !initializer.is_signer || rngesus_account.owner != initializer.key{
+        if !initializer.is_signer || *actual_bpf_account.key != derived_bpf_address{
             return Err(ProgramError::MissingRequiredSignature);
         }
 
-        if rngesus_account.owner != program_id {
-            return Err(ProgramError::IncorrectProgramId);
-        }
-
-        let mut rng_info = Rngesus::unpack_unchecked(&rngesus_account.try_borrow_data()?)?;
-        if rng_info.is_initialized() {
+        msg!("before unpack");
+        if let Ok(_) = Rngesus::unpack(&rngesus_account.try_borrow_data()?){
             return Err(ProgramError::AccountAlreadyInitialized);
         }
+        msg!("after unpack");
+
+        let rng_info = Rngesus {
+            prev_hash: *initial_key,
+            ptr: 0,
+            num_callbacks: 0,
+            callbacks: vec![]
+        };
         
-        rng_info.prev_hash = *initial_key;
-        Rngesus::pack(rng_info, &mut rngesus_account.try_borrow_mut_data()?)?;
+        let mut data = [0; Rngesus::LEN];
+        msg!("data len is {}", data.len());
+        Rngesus::pack(rng_info, &mut data)?;
+        msg!("after pack");
 
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::str::FromStr;
+
+    use super::*;
+
+    #[test]
+    fn generate_derived_bpf() {
+
+        // derived_bpf_address contains the pubkey for the account which holds
+        // the data for the currently running program.
+        let (derived_bpf_address, _) =     Pubkey::find_program_address(
+            &[
+                &Pubkey::from_str("64JwRVSfuDvp2jo5MMYJ993FSAdq2gtede3ToCK2JUwN").ok().unwrap().to_bytes()
+            ],
+            &Pubkey::from_str("BPFLoaderUpgradeab1e11111111111111111111111").ok().unwrap(),
+        );
+
+        println!("{}", derived_bpf_address.to_string());
+
     }
 }

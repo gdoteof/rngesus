@@ -1,7 +1,7 @@
 use solana_program::{
     program_pack::{IsInitialized, Pack, Sealed},
     program_error::ProgramError,
-    pubkey::Pubkey,
+    pubkey::Pubkey, msg,
 };
 
 
@@ -66,7 +66,10 @@ impl Pack for Rngesus {
     }
 
     fn pack_into_slice(&self, dst: &mut [u8]) {
+        msg!("in pack_into slice LEN: {}", Rngesus::LEN);
         let dst = array_mut_ref![dst, 0, Rngesus::LEN];
+        let actual = 32 + 4 + 4 + CALLBACK_BYTES;
+        msg!("actual bytes: {}, expected bytes: {}", actual, Rngesus::LEN);
 
         let (
             prev_hash_dst,

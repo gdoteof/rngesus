@@ -10,6 +10,7 @@ pub enum RngesusInstruction {
     ///
     /// 0. `[signer]` The account of the client invoking the function
     /// 1. `[]` The account of the Rngesus Program 
+    /// 2. `[]` The account of the executable data that the Rngesus Program lives in
     InitRngesus {
         /// the first "prev_key"
         initial_key: Pubkey
