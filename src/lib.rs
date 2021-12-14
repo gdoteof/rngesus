@@ -1,3 +1,5 @@
+#![cfg_attr(feature="fail-on-warnings", deny(warnings))]
+
 pub mod entrypoint;
 pub mod instruction;
 pub mod error;

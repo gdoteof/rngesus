@@ -24,6 +24,7 @@ impl Sealed for Rngesus {}
 impl Pack for Rngesus {
     const LEN: usize = PUBKEY_SIZE + 4 + 4 + CALLBACK_BYTES;
     fn unpack_from_slice(src: &[u8]) -> Result<Self, ProgramError> {
+        msg!("in unpack from slice");
         let src = array_ref![src, 0, Rngesus::LEN];
         let (
             b_prev_hash,
@@ -31,12 +32,15 @@ impl Pack for Rngesus {
             b_num_callbacks,
             b_callbacks,
         ) = array_refs![src, PUBKEY_SIZE, 4, 4, CALLBACK_BYTES];
+        msg!("after array_refs");
 
         fn callbacks_from_array(callback_bytes: &[u8; CALLBACK_BYTES], num_callbacks: u32) -> Result<Vec<Pubkey>, ProgramError>{
+            msg!("inside callbacks from array");
             let mut pks:Vec<Pubkey> = Vec::with_capacity(num_callbacks.try_into().unwrap());
             let end = num_callbacks * 32;
 
             if end > CALLBACK_BYTES.try_into().unwrap() {
+                msg!("throwing cus too many callbacks");
                 return Err(RngesusError::TooManyCallbacks.into());
             } 
 
@@ -56,6 +60,7 @@ impl Pack for Rngesus {
 
         let callbacks = callbacks_from_array(b_callbacks, num_callbacks)?;
 
+        msg!("after filling callbacks");
         Ok(Rngesus {
             prev_hash: Pubkey::new_from_array(*b_prev_hash),
             ptr: u32::from_le_bytes(*b_ptr),
@@ -103,6 +108,9 @@ impl Pack for Rngesus {
 
 impl IsInitialized for Rngesus {
     fn is_initialized(&self) -> bool {
+        msg!("checking if initialized");
+        msg!("prev_hash: {:?}", self.prev_hash);
+        msg!("ptr: {:?}", self.ptr);
         self.prev_hash != Pubkey::new_from_array([0; 32]) 
     }
 }

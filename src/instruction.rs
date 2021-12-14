@@ -1,4 +1,5 @@
 use std::convert::TryInto;
+use arrayref::{mut_array_refs};
 use solana_program::{program_error::ProgramError, pubkey::Pubkey};
 
 use crate::error::RngesusError::InvalidInstruction;
@@ -30,7 +31,13 @@ pub enum RngesusInstruction {
         new_key: Pubkey,
         // the secret which proves it's from the same derived chain
         secret: [u8; 32],
-    }
+    },
+    /// Bump the ptr to 1 cus I got it wrong in the init the first time
+    /// 
+    /// 0. `[signer]` The account of the client invoking the function
+    /// 1. `[]` The account of the Rngesus Program 
+    /// 2. `[]` The account of the executable data that the Rngesus Program lives in
+    IncrementPtr 
 
 }
 impl RngesusInstruction {
@@ -46,6 +53,7 @@ impl RngesusInstruction {
                 new_key: Self::unpack_first_key(rest)?,
                 secret: rest[32..64].try_into().unwrap()
             },
+            2 => Self::IncrementPtr,
             _ => return Err(InvalidInstruction.into()),
         })
     }
@@ -57,5 +65,19 @@ impl RngesusInstruction {
             .map(Pubkey::new)
             .ok_or(InvalidInstruction)?;
         Ok(key)
+    }
+
+    pub fn pack(&self) -> Result<Vec<u8>, ProgramError>{
+        match self {
+            RngesusInstruction::InitRngesus { initial_key} => {
+                let mut ret = [0; 33];
+                let (instruction_dst, key_dst) = mut_array_refs![& mut ret, 1, 32];
+                instruction_dst[0] = 1;
+                *key_dst = initial_key.to_bytes();
+                return Ok(ret.to_vec());
+            },
+            _ => Err(ProgramError::Custom(420))
+        }
+
     }
 }

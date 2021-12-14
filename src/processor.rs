@@ -25,7 +25,8 @@ impl Processor {
             RngesusInstruction::IncrementPass { new_key, secret } => {
                 msg!("Instruction: IncrementPass");
                 Self::process_increment_pass(accounts, &new_key, &secret, program_id)
-            }
+            },
+            RngesusInstruction::IncrementPtr => Self::process_increment_ptr(accounts, program_id)
         }
     }
 
@@ -92,30 +93,81 @@ impl Processor {
         
         let actual_bpf_account = next_account_info(account_info_iter)?;
         
+        msg!("after account iters");
 
-        msg!("actual: {}, derived: {}", actual_bpf_account.key, derived_bpf_address);
         // We need to ensure that the initialization is done by the contract owner.
         if !initializer.is_signer || *actual_bpf_account.key != derived_bpf_address{
             return Err(ProgramError::MissingRequiredSignature);
         }
 
-        msg!("before unpack");
         if let Ok(_) = Rngesus::unpack(&rngesus_account.try_borrow_data()?){
             return Err(ProgramError::AccountAlreadyInitialized);
         }
-        msg!("after unpack");
+        msg!("not initialized already..");
 
         let rng_info = Rngesus {
             prev_hash: *initial_key,
-            ptr: 0,
+            ptr: 1,
             num_callbacks: 0,
             callbacks: vec![]
         };
+
+        let data = &mut rngesus_account.try_borrow_mut_data()?;
+        
+        Rngesus::pack(rng_info, data)?;
+        msg!("packed this time, i hope?");
+
+        Ok(())
+    }
+
+    fn process_increment_ptr(
+        accounts: &[AccountInfo],
+        program_id: &Pubkey,
+    ) -> ProgramResult {
+
+        msg!("in ptr bump");
+        let account_info_iter = &mut accounts.iter();
+        let initializer = next_account_info(account_info_iter)?;
+        let rngesus_account = next_account_info(account_info_iter)?;
+        msg!("after two accounts consumed");
+
+        // derived_bpf_address contains the pubkey for the account which holds
+        // the data for the currently running program.
+        let (derived_bpf_address, _) =     Pubkey::find_program_address(
+            &[
+                &program_id.to_bytes()
+            ],
+            &Pubkey::from_str("BPFLoaderUpgradeab1e11111111111111111111111").ok().unwrap()
+        );
+
+
+        // Here we want to check the upgrade authority to ensure the initializaiton is done by
+        // the contract creator.  Awkward because in order to check, we need to pass the account in,
+        // which we do.  But since we have it, we can just derive what it is supposed to be, and check.
+        
+        let actual_bpf_account = next_account_info(account_info_iter)?;
+        msg!("after three accounts consumed");
+        
+
+        // We need to ensure that the initialization is done by the contract owner.
+        if !initializer.is_signer || *actual_bpf_account.key != derived_bpf_address{
+            return Err(ProgramError::MissingRequiredSignature);
+        }
+        msg!("after sig check");
+
+        let raw_data = &rngesus_account.try_borrow_mut_data()?;
+
+        msg!("after borrow raw data_len: {}", raw_data.len());
+
+        let mut rng_info = Rngesus::unpack(&raw_data)?;
+        msg!("after unpack check");
+
+        rng_info.ptr += 1;
+        msg!("after ptr bump");
         
         let mut data = [0; Rngesus::LEN];
-        msg!("data len is {}", data.len());
         Rngesus::pack(rng_info, &mut data)?;
-        msg!("after pack");
+        msg!("after ptr bump");
 
         Ok(())
     }

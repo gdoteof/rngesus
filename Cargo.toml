@@ -13,6 +13,7 @@ piapprec = "0.1.1"
 
 [features]
 test-bpf = []
+fail-on-warnings = []
 
 [dev-dependencies]
 solana-program-test = "=1.8.1"
@@ -21,3 +22,4 @@ solana-validator = "=1.8.1"
 
 [lib]
 crate-type = ["cdylib", "lib"]
+
