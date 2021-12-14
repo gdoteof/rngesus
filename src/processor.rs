@@ -6,7 +6,7 @@ use solana_program::{
     msg,
     pubkey::Pubkey,
     program_error::ProgramError,
-    program_pack::{Pack, IsInitialized},
+    program_pack::{Pack, IsInitialized}, rent::Rent, sysvar::Sysvar
 };
 
 use crate::{instruction::RngesusInstruction, state::Rngesus, error::RngesusError};
@@ -73,48 +73,50 @@ impl Processor {
         initial_key: &Pubkey,
         program_id: &Pubkey,
     ) -> ProgramResult {
+        msg!("before anything??");
         let account_info_iter = &mut accounts.iter();
         let initializer = next_account_info(account_info_iter)?;
-        let rngesus_account = next_account_info(account_info_iter)?;
 
-        // derived_bpf_address contains the pubkey for the account which holds
-        // the data for the currently running program.
-        let (derived_bpf_address, _) =     Pubkey::find_program_address(
-            &[
-                &program_id.to_bytes()
-            ],
-            &Pubkey::from_str("BPFLoaderUpgradeab1e11111111111111111111111").ok().unwrap()
-        );
+        msg!("before sign check");
 
-
-        // Here we want to check the upgrade authority to ensure the initializaiton is done by
-        // the contract creator.  Awkward because in order to check, we need to pass the account in,
-        // which we do.  But since we have it, we can just derive what it is supposed to be, and check.
-        
-        let actual_bpf_account = next_account_info(account_info_iter)?;
-        
-        msg!("after account iters");
-
-        // We need to ensure that the initialization is done by the contract owner.
-        if !initializer.is_signer || *actual_bpf_account.key != derived_bpf_address{
-            return Err(ProgramError::MissingRequiredSignature);
+        if !initializer.is_signer {
+            return Err(ProgramError::MissingRequiredSignature)
         }
+        let rngesus_data_account = next_account_info(account_info_iter)?;
+        msg!("rngesus_data_account: {:?}", rngesus_data_account);
 
-        if let Ok(_) = Rngesus::unpack(&rngesus_account.try_borrow_data()?){
+        let rent_account = next_account_info(account_info_iter)?;
+        msg!("rent_account: {:?}", rent_account);
+
+        let rent = &Rent::from_account_info(rent_account)?;
+
+        msg!("before rent check");
+        if !rent.is_exempt(rngesus_data_account.lamports(), rngesus_data_account.data_len()) {
+            return Err(ProgramError::AccountNotRentExempt);
+        }
+        msg!("after rent check");
+
+        let mut rngesus_data = Rngesus::unpack_unchecked(&rngesus_data_account.try_borrow_data()?)?;
+        msg!("after first unpack");
+        if rngesus_data.is_initialized() {
             return Err(ProgramError::AccountAlreadyInitialized);
         }
-        msg!("not initialized already..");
 
-        let rng_info = Rngesus {
-            prev_hash: *initial_key,
-            ptr: 1,
-            num_callbacks: 0,
-            callbacks: vec![]
-        };
-
-        let data = &mut rngesus_account.try_borrow_mut_data()?;
+        msg!("rngesus_data_account: {:?}", rngesus_data_account);
+        msg!("program_id: {:?}", program_id);
+        if rngesus_data_account.owner != program_id {
+            return Err(ProgramError::InvalidAccountData);
+        }
         
-        Rngesus::pack(rng_info, data)?;
+
+        rngesus_data.is_initialized= true;
+        rngesus_data.prev_hash = *initial_key;
+        rngesus_data.ptr= 1;
+        rngesus_data.num_callbacks= 0;
+        rngesus_data.callbacks= vec![];
+
+        
+        Rngesus::pack(rngesus_data, &mut rngesus_data_account.try_borrow_mut_data()?)?;
         msg!("packed this time, i hope?");
 
         Ok(())

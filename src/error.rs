@@ -11,6 +11,8 @@ pub enum RngesusError {
     TooManyCallbacks,
     #[error("Incorrect Secret or Hash")]
     IncorrectSecretOrHash,
+    #[error("Not rent exempt")]
+    NotRentExempt,
 }
 
 impl From<RngesusError> for ProgramError {

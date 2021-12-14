@@ -9,6 +9,7 @@ use arrayref::{array_mut_ref, array_ref, array_refs, mut_array_refs};
 use crate::{error::RngesusError};
 
 pub struct Rngesus {
+    pub is_initialized: bool,
     pub prev_hash: Pubkey,
     pub ptr: u32,
     pub num_callbacks: u32,
@@ -22,16 +23,17 @@ const CALLBACK_BYTES: usize = MAX_CALLBACKS * 32;
 impl Sealed for Rngesus {}
 
 impl Pack for Rngesus {
-    const LEN: usize = PUBKEY_SIZE + 4 + 4 + CALLBACK_BYTES;
+    const LEN: usize = 1 + PUBKEY_SIZE + 4 + 4 + CALLBACK_BYTES;
     fn unpack_from_slice(src: &[u8]) -> Result<Self, ProgramError> {
         msg!("in unpack from slice");
         let src = array_ref![src, 0, Rngesus::LEN];
         let (
+            b_initiated,
             b_prev_hash,
             b_ptr,
             b_num_callbacks,
             b_callbacks,
-        ) = array_refs![src, PUBKEY_SIZE, 4, 4, CALLBACK_BYTES];
+        ) = array_refs![src, 1, PUBKEY_SIZE, 4, 4, CALLBACK_BYTES];
         msg!("after array_refs");
 
         fn callbacks_from_array(callback_bytes: &[u8; CALLBACK_BYTES], num_callbacks: u32) -> Result<Vec<Pubkey>, ProgramError>{
@@ -62,6 +64,7 @@ impl Pack for Rngesus {
 
         msg!("after filling callbacks");
         Ok(Rngesus {
+            is_initialized: b_initiated[0] == 1,
             prev_hash: Pubkey::new_from_array(*b_prev_hash),
             ptr: u32::from_le_bytes(*b_ptr),
             num_callbacks: num_callbacks,
@@ -77,13 +80,15 @@ impl Pack for Rngesus {
         msg!("actual bytes: {}, expected bytes: {}", actual, Rngesus::LEN);
 
         let (
+            is_initialized_dst,
             prev_hash_dst,
             ptr_dst,
             num_callbacks_dst,
             callbacks_dst,
-        ) = mut_array_refs![dst, 32, 4, 4, CALLBACK_BYTES];
+        ) = mut_array_refs![dst, 1, 32, 4, 4, CALLBACK_BYTES];
 
         let Rngesus {
+            is_initialized,
             prev_hash,
             ptr,
             num_callbacks,
@@ -98,6 +103,7 @@ impl Pack for Rngesus {
         }
 
 
+        is_initialized_dst[0] = *is_initialized as u8;
         prev_hash_dst.copy_from_slice(prev_hash.as_ref());
         *ptr_dst = ptr.to_le_bytes();
         *num_callbacks_dst = num_callbacks.to_le_bytes();
@@ -108,9 +114,6 @@ impl Pack for Rngesus {
 
 impl IsInitialized for Rngesus {
     fn is_initialized(&self) -> bool {
-        msg!("checking if initialized");
-        msg!("prev_hash: {:?}", self.prev_hash);
-        msg!("ptr: {:?}", self.ptr);
-        self.prev_hash != Pubkey::new_from_array([0; 32]) 
+      self.is_initialized
     }
 }
