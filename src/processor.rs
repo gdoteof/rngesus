@@ -1,7 +1,6 @@
 use solana_program::{
     account_info::{next_account_info,AccountInfo},
     entrypoint::ProgramResult,
-    msg,
     pubkey::Pubkey,
     program_error::ProgramError,
     program_pack::{Pack, IsInitialized}, rent::Rent, sysvar::Sysvar
@@ -17,11 +16,9 @@ impl Processor {
 
         match instruction {
             RngesusInstruction::InitRngesus { initial_key } => {
-                msg!("Instruction: InitRngesus");
                 Self::process_init_rngesus(accounts, &initial_key, program_id)
             },
             RngesusInstruction::IncrementPass { new_key, secret } => {
-                msg!("Instruction: IncrementPass");
                 Self::process_increment_pass(accounts, &new_key, &secret, program_id)
             },
         }
@@ -33,32 +30,26 @@ impl Processor {
         secret: &[u8; 32],
         program_id: &Pubkey, 
     ) -> ProgramResult {
-        msg!("in increment pass");
         let account_info_iter = &mut accounts.iter();
         let initializer = next_account_info(account_info_iter)?;
 
         if !initializer.is_signer {
             return Err(ProgramError::MissingRequiredSignature)
         }
-        msg!("past the signer");
         let rngesus_data_account = next_account_info(account_info_iter)?;
 
         let mut rngesus_data = Rngesus::unpack_unchecked(&rngesus_data_account.try_borrow_data()?)?;
-        msg!("past the unpack");
 
         if !rngesus_data.is_initialized() {
             return Err(ProgramError::UninitializedAccount);
         }
 
 
-        msg!("rngesus_data_account: {:?}", rngesus_data_account);
-        msg!("program_id: {:?}", program_id);
         if rngesus_data_account.owner != program_id {
             return Err(ProgramError::InvalidAccountData);
         }
         
         
-        msg!("packed this time, i hope?");
 
 
         
@@ -73,7 +64,6 @@ impl Processor {
         rngesus_data.prev_hash = *new_key;
         rngesus_data.ptr += 1;
         Rngesus::pack(rngesus_data, &mut rngesus_data_account.try_borrow_mut_data()?)?;
-        msg!("Successfully bumped to {}", new_key);
 
         Ok(())
 

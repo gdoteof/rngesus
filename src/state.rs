@@ -1,7 +1,7 @@
 use solana_program::{
     program_pack::{IsInitialized, Pack, Sealed},
     program_error::ProgramError,
-    pubkey::Pubkey, msg,
+    pubkey::Pubkey, 
 };
 
 
@@ -23,9 +23,8 @@ const CALLBACK_BYTES: usize = MAX_CALLBACKS * 32;
 impl Sealed for Rngesus {}
 
 impl Pack for Rngesus {
-    const LEN: usize = 1 + PUBKEY_SIZE + 4 + 4 + CALLBACK_BYTES;
+    const LEN: usize = 1 + PUBKEY_SIZE + 4 + 4 + CALLBACK_BYTES; //3241
     fn unpack_from_slice(src: &[u8]) -> Result<Self, ProgramError> {
-        msg!("in unpack from slice");
         let src = array_ref![src, 0, Rngesus::LEN];
         let (
             b_initiated,
@@ -34,15 +33,12 @@ impl Pack for Rngesus {
             b_num_callbacks,
             b_callbacks,
         ) = array_refs![src, 1, PUBKEY_SIZE, 4, 4, CALLBACK_BYTES];
-        msg!("after array_refs");
 
         fn callbacks_from_array(callback_bytes: &[u8; CALLBACK_BYTES], num_callbacks: u32) -> Result<Vec<Pubkey>, ProgramError>{
-            msg!("inside callbacks from array");
             let mut pks:Vec<Pubkey> = Vec::with_capacity(num_callbacks.try_into().unwrap());
             let end = num_callbacks * 32;
 
             if end > CALLBACK_BYTES.try_into().unwrap() {
-                msg!("throwing cus too many callbacks");
                 return Err(RngesusError::TooManyCallbacks.into());
             } 
 
@@ -62,7 +58,6 @@ impl Pack for Rngesus {
 
         let callbacks = callbacks_from_array(b_callbacks, num_callbacks)?;
 
-        msg!("after filling callbacks");
         Ok(Rngesus {
             is_initialized: b_initiated[0] == 1,
             prev_hash: Pubkey::new_from_array(*b_prev_hash),
@@ -74,10 +69,7 @@ impl Pack for Rngesus {
     }
 
     fn pack_into_slice(&self, dst: &mut [u8]) {
-        msg!("in pack_into slice LEN: {}", Rngesus::LEN);
         let dst = array_mut_ref![dst, 0, Rngesus::LEN];
-        let actual = 32 + 4 + 4 + CALLBACK_BYTES;
-        msg!("actual bytes: {}, expected bytes: {}", actual, Rngesus::LEN);
 
         let (
             is_initialized_dst,
