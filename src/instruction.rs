@@ -10,8 +10,8 @@ pub enum RngesusInstruction {
     /// Accounts expected:
     ///
     /// 0. `[signer]` The account of the client invoking the function
-    /// 1. `[]` The account of the Rngesus Program 
-    /// 2. `[]` The account of the executable data that the Rngesus Program lives in
+    /// 1. `[writeable]` The data account which should be created before, and passed in.
+    /// 2. `[]` The rent account, so we can make sure our data is rent-free
     InitRngesus {
         /// the first "prev_key"
         initial_key: Pubkey
@@ -32,13 +32,6 @@ pub enum RngesusInstruction {
         // the secret which proves it's from the same derived chain
         secret: [u8; 32],
     },
-    /// Bump the ptr to 1 cus I got it wrong in the init the first time
-    /// 
-    /// 0. `[signer]` The account of the client invoking the function
-    /// 1. `[]` The account of the Rngesus Program 
-    /// 2. `[]` The account of the executable data that the Rngesus Program lives in
-    IncrementPtr 
-
 }
 impl RngesusInstruction {
     /// Unpacks a byte buffer into a [RngesusInstruction](enum.RngesusInstruction.html).
@@ -53,7 +46,6 @@ impl RngesusInstruction {
                 new_key: Self::unpack_first_key(rest)?,
                 secret: rest[32..64].try_into().unwrap()
             },
-            2 => Self::IncrementPtr,
             _ => return Err(InvalidInstruction.into()),
         })
     }
