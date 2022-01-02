@@ -57,7 +57,6 @@ impl RngesusInstruction {
     fn unpack_first_key(input: &[u8]) -> Result<Pubkey, ProgramError> {
         let key = input
             .get(..32)
-            .and_then(|slice| slice.try_into().ok())
             .map(Pubkey::new)
             .ok_or(InvalidInstruction)?;
         Ok(key)
@@ -70,7 +69,7 @@ impl RngesusInstruction {
                 let (instruction_dst, key_dst) = mut_array_refs![& mut ret, 1, 32];
                 instruction_dst[0] = 1;
                 *key_dst = initial_key.to_bytes();
-                return Ok(ret.to_vec());
+                Ok(ret.to_vec())
             },
             _ => Err(ProgramError::Custom(420))
         }
