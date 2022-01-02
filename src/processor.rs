@@ -21,7 +21,18 @@ impl Processor {
             RngesusInstruction::IncrementPass { new_key, secret } => {
                 Self::process_increment_pass(accounts, &new_key, &secret, program_id)
             },
+            RngesusInstruction::RegisterCallback { program_address} => {
+                Self::process_register_callback(accounts, program_id, &program_address)
+            },
         }
+    }
+
+    fn process_register_callback(
+        _accounts: &[AccountInfo],
+        _program_id: &Pubkey,
+        _program_address: &Pubkey
+    ) -> ProgramResult{
+        Ok(())
     }
 
     fn process_increment_pass(
@@ -36,6 +47,7 @@ impl Processor {
         if !initializer.is_signer {
             return Err(ProgramError::MissingRequiredSignature)
         }
+        
         let rngesus_data_account = next_account_info(account_info_iter)?;
 
         let mut rngesus_data = Rngesus::unpack_unchecked(&rngesus_data_account.try_borrow_data()?)?;
@@ -44,14 +56,9 @@ impl Processor {
             return Err(ProgramError::UninitializedAccount);
         }
 
-
         if rngesus_data_account.owner != program_id {
             return Err(ProgramError::InvalidAccountData);
         }
-        
-        
-
-
         
         if !piapprec::verify(
             &rngesus_data.prev_hash.to_bytes(), 

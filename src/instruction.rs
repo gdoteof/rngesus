@@ -32,6 +32,10 @@ pub enum RngesusInstruction {
         // the secret which proves it's from the same derived chain
         secret: [u8; 32],
     },
+    RegisterCallback {
+        // the program's pubkey that will receive the callback
+        program_address: Pubkey,
+    },
 }
 impl RngesusInstruction {
     /// Unpacks a byte buffer into a [RngesusInstruction](enum.RngesusInstruction.html).

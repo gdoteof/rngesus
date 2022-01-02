@@ -8,6 +8,7 @@ use solana_program::{
 use arrayref::{array_mut_ref, array_ref, array_refs, mut_array_refs};
 use crate::{error::RngesusError};
 
+#[derive(PartialEq, Eq, Debug)]
 pub struct Rngesus {
     pub is_initialized: bool,
     pub prev_hash: Pubkey,
@@ -107,5 +108,32 @@ impl Pack for Rngesus {
 impl IsInitialized for Rngesus {
     fn is_initialized(&self) -> bool {
       self.is_initialized
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use solana_program::pubkey::Pubkey;
+
+    use crate::state::Rngesus;
+
+    use super::*;
+    #[test]
+    fn rng_pack_unpack() {
+        let prev_hash = Pubkey::new(b"00000000000000000000000prev_hash");
+        let callback1 = Pubkey::new(b"00000000000000000000000callback1");
+        let callback2 = Pubkey::new(b"00000000000000000000000callback2");
+        let base = Rngesus {
+            is_initialized: true,
+            prev_hash: prev_hash,
+            ptr: 69,
+            num_callbacks: 2,
+            callbacks: [callback1,callback2].to_vec()
+        };
+
+        let buffer: &mut [u8] = &mut [0; Rngesus::LEN];
+        Rngesus::pack_into_slice(&base, buffer);
+        let unpacked = Rngesus::unpack(buffer).unwrap();
+        assert_eq!(base,unpacked);
     }
 }
