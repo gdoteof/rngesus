@@ -11,6 +11,75 @@ const PUBKEY_SIZE: usize = 32;
 const CALLBACK_BYTES: usize = MAX_CALLBACKS * 32;
 
 #[derive(PartialEq, Debug)]
+pub struct Callback {
+    pub is_initialized: bool,
+    pub is_enabled: bool,
+    pub program_pubkey: Pubkey,
+    pub invokes: u32,
+    pub error: u8,
+}
+
+impl Sealed for Callback {}
+
+impl Pack for Callback {
+    const LEN: usize = 1 + 1 + PUBKEY_SIZE + 4 + 1;
+    fn unpack_from_slice(src: &[u8]) -> Result<Self, ProgramError> {
+        let src = array_ref![src, 0, Callback::LEN];
+        let (
+            b_initialized,
+            b_enabled,
+            b_program_pubkey,
+            b_invokes,
+            b_error,
+        ) = array_refs![src, 1, 1, PUBKEY_SIZE, 4, 1];
+
+        let invokes = u32::from_le_bytes(*b_invokes);
+        let error = u8::from_le_bytes(*b_error);
+
+        Ok(Callback {
+            is_initialized: b_initialized[0] == 1,
+            is_enabled: b_enabled[0] == 1,
+            program_pubkey: Pubkey::new(b_program_pubkey),
+            invokes,
+            error
+        }
+        )
+    }
+
+    fn pack_into_slice(&self, dst: &mut [u8]) {
+        let dst = array_mut_ref![dst, 0, Callback::LEN];
+
+        let (
+            is_initialized_dst,
+            is_enabled_dst,
+            program_pubkey_dst,
+            invokes_dst,
+            error_dst,
+        ) = mut_array_refs![dst, 1, 1, PUBKEY_SIZE, 4, 1];
+
+        let Callback {
+            is_initialized,
+            is_enabled,
+            program_pubkey,
+            invokes,
+            error
+        } = self;
+
+        is_initialized_dst[0] = *is_initialized as u8;
+        is_enabled_dst[0] = *is_enabled as u8;
+        *program_pubkey_dst = program_pubkey.to_bytes();
+        *invokes_dst = invokes.to_le_bytes();
+        error_dst[0] = *error as u8;
+    }
+}
+
+impl IsInitialized for Callback {
+    fn is_initialized(&self) -> bool {
+      self.is_initialized
+    }
+}
+
+#[derive(PartialEq, Debug)]
 pub struct Rngesus {
     pub is_initialized: bool,
     pub prev_hash: Pubkey,
@@ -130,6 +199,22 @@ mod tests {
         let buffer: &mut [u8] = &mut [0; Rngesus::LEN];
         Rngesus::pack_into_slice(&base, buffer);
         let unpacked = Rngesus::unpack(buffer).unwrap();
+        assert_eq!(base,unpacked);
+    }
+
+    #[test]
+    fn callback_pack_unpack() {
+        let base = Callback {
+            is_initialized: true,
+            is_enabled: true,
+            program_pubkey: Pubkey::new(b"00000000000000000000000call_back"),
+            invokes: 420,
+            error: 69
+        };
+
+        let buffer: &mut [u8] = &mut [0; Callback::LEN];
+        Callback::pack_into_slice(&base, buffer);
+        let unpacked = Callback::unpack(buffer).unwrap();
         assert_eq!(base,unpacked);
     }
 }
